@@ -1,5 +1,38 @@
 {
-	"ImportPath": "github.com/akanto/dhcpdriver",
+	"ImportPath": "github.com/akanto/dhcp-plugin",
 	"GoVersion": "go1.5.1",
-	"Deps": []
+	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.6.4-12-g467d9d5",
+			"Rev": "467d9d55c2d2c17248441a8fc661561161f40d5e"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/units",
+			"Comment": "v1.4.1-6485-g949270b",
+			"Rev": "949270ba7ca3c93f25a13abf68d5e0e4c05be08a"
+		},
+		{
+			"ImportPath": "github.com/docker/libnetwork/driverapi",
+			"Comment": "v0.5-18-g54948e2",
+			"Rev": "54948e26b50a835c15ba696bfebaa6922e86ff0e"
+		},
+		{
+			"ImportPath": "github.com/docker/libnetwork/types",
+			"Comment": "v0.5-18-g54948e2",
+			"Rev": "54948e26b50a835c15ba696bfebaa6922e86ff0e"
+		},
+		{
+			"ImportPath": "github.com/gorilla/context",
+			"Rev": "215affda49addc4c8ef7e2534915df2c8c35c6cd"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Rev": "8096f47503459bcc74d1f4c487b7e6e42e5746b5"
+		},
+		{
+			"ImportPath": "github.com/samalba/dockerclient",
+			"Rev": "3342e9407a459d3cb369a81f8aa23b6cbe3fa8da"
+		}
+	]
 }
