@@ -1,0 +1,5 @@
+{
+	"ImportPath": "github.com/akanto/dhcpdriver",
+	"GoVersion": "go1.5.1",
+	"Deps": []
+}
