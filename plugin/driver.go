@@ -2,24 +2,18 @@ package dhcp
 
 import (
 	"encoding/json"
-	"net"
 	"net/http"
 
-	"github.com/docker/libnetwork/driverapi"
+	"github.com/docker/libnetwork/drivers/remote/api"
+	"github.com/vishvananda/netlink"
 
 	log "github.com/Sirupsen/logrus"
 )
 
 
-type networkCreate struct {
-	NetworkID string
-	Options   map[string]interface{}
-	IpV4Data  []driverapi.IPAMData
-	ipV6Data  []driverapi.IPAMData
-}
 
 func (driver *driver) createNetwork(w http.ResponseWriter, r *http.Request) {
-	var create networkCreate
+	var create api.CreateNetworkRequest
 	err := json.NewDecoder(r.Body).Decode(&create)
 	if err != nil {
 		sendError(w, "Unable to decode JSON payload: " + err.Error(), http.StatusBadRequest)
@@ -45,47 +39,50 @@ func (driver *driver) deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	emptyResponse(w)
 }
 
-type endpointCreate struct {
-	NetworkID  string
-	EndpointID string
-	Interface  *EndpointInterface
-	Options    map[string]interface{}
-}
-
-// EndpointInterface represents an interface endpoint.
-type EndpointInterface struct {
-	Address     string
-	AddressIPv6 string
-	MacAddress  string
-}
-
 type InterfaceName struct {
 	SrcName   string
 	DstName   string
 	DstPrefix string
 }
 
-type endpointResponse struct {
-	Interface EndpointInterface
-}
-
 func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
-	var create endpointCreate
+	var create api.CreateEndpointRequest
 	if err := json.NewDecoder(r.Body).Decode(&create); err != nil {
 		sendError(w, "Unable to decode JSON payload: " + err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	log.Debugf("Create endpoint request: %+v", create)
+	log.Debugf("Create endpoint request interface: %+v", create.Interface)
+
+	// create and attach local name to the bridge
+	local := "ovstap" + create.EndpointID[:5]
+	remote := "tap" + create.EndpointID[:5]
+	la := netlink.NewLinkAttrs()
+	la.Name = local
+	veth := &netlink.Veth{ la, remote }
+
+	if err := netlink.LinkAdd(veth); err != nil {
+		log.Errorf("could not create veth pair: %s", err)
+	}
+
+	remoteTap, _ := netlink.LinkByName(remote)
+
+
+	log.Debugf("remoteTap: %+v", remoteTap)
+	mac := remoteTap.Attrs().HardwareAddr.String()
+	log.Debugf("converted MacAddress: %s", mac)
+
+	ifResult := &api.EndpointInterface {
+		MacAddress: mac,
+	}
 
 	// IP addrs comes from libnetwork ipam via user 'docker network' parameters
-	respIface := &EndpointInterface{
-		MacAddress: create.Interface.MacAddress,
-	}
-	resp := &endpointResponse{
-		Interface: *respIface,
+	resp := &api.CreateEndpointResponse{
+		Interface: ifResult,
 	}
 	log.Debugf("Create endpoint response: %+v", resp)
+	log.Debugf("Create endpoint response interface: %+v", resp.Interface)
 	objectResponse(w, resp)
 }
 
@@ -138,13 +135,6 @@ type joinInfo struct {
 	GatewayIPv6   string
 }
 
-type join struct {
-	NetworkID  string
-	EndpointID string
-	SandboxKey string
-	Options    map[string]interface{}
-}
-
 type staticRoute struct {
 	Destination string
 	RouteType   int
@@ -158,12 +148,27 @@ type joinResponse struct {
 }
 
 func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
-	var j join
+	var j api.JoinRequest
 	if err := json.NewDecoder(r.Body).Decode(&j); err != nil {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
 
+	log.Debugf("Join request: %+v", j)
+
+	remote := "tap" + j.EndpointID[:5]
+
+	// SrcName gets renamed to DstPrefix on the container iface
+	ifname := &InterfaceName{
+		SrcName: remote,
+		DstPrefix: "eth",
+	}
+	res := &joinResponse{
+		InterfaceName: *ifname,
+		Gateway:       "192.168.1.1",
+	}
+	log.Debugf("Join response: %+v", res)
+	objectResponse(w, res)
 	log.Debugf("Join endpoint %s:%s to %s", j.NetworkID, j.EndpointID, j.SandboxKey)
 }
 
@@ -182,15 +187,5 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Leave request: %+v", &l)
 	emptyResponse(w)
 	log.Debugf("Leave %s:%s", l.NetworkID, l.EndpointID)
-}
-
-
-// Generate a mac addr
-func makeMac(ip net.IP) string {
-	hw := make(net.HardwareAddr, 6)
-	hw[0] = 0x7a
-	hw[1] = 0x42
-	copy(hw[2:], ip.To4())
-	return hw.String()
 }
 
