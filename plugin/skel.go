@@ -37,19 +37,19 @@ type pluginConfig struct {
 	networkInterface string
 }
 
-func New(version string, networkInterface string) (Driver, error) {
+func New(version string, externalPort string) (Driver, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to docker: %s", err)
 	}
 
 	pluginOpts := &pluginConfig{
-		networkInterface: networkInterface,
+		networkInterface: externalPort,
 	}
 
 	log.Infof("Plugin configuration options are: \n %+v", pluginOpts)
 
-	NewBridge()
+	SetupBridge(externalPort)
 
 	if err != nil {
 		return nil, fmt.Errorf("unable to create the bridge: %s", err)

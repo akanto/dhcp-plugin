@@ -58,6 +58,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	// create and attach local name to the bridge
 	local := "ovstap" + create.EndpointID[:5]
 	remote := "tap" + create.EndpointID[:5]
+
 	la := netlink.NewLinkAttrs()
 	la.Name = local
 	veth := &netlink.Veth{ la, remote }
@@ -65,6 +66,8 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	if err := netlink.LinkAdd(veth); err != nil {
 		log.Errorf("could not create veth pair: %s", err)
 	}
+
+	//CreateVethPair(local, remote)
 
 	remoteTap, _ := netlink.LinkByName(remote)
 
@@ -97,6 +100,19 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
+
+	// create and attach local name to the bridge
+	local := "ovstap" + delete.EndpointID[:5]
+	remote := "tap" + delete.EndpointID[:5]
+
+	la := netlink.NewLinkAttrs()
+	la.Name = local
+	veth := &netlink.Veth{ la, remote }
+
+	if err := netlink.LinkDel(veth); err != nil {
+		log.Errorf("could not create veth pair: %s", err)
+	}
+
 	log.Debugf("Delete endpoint request: %+v", &delete)
 	emptyResponse(w)
 	// null check cidr in case driver restarted and doesn't know the network to avoid panic
@@ -156,6 +172,9 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Join request: %+v", j)
 
+	local := "ovstap" + j.EndpointID[:5]
+	AddLinkToBridge(local)
+
 	remote := "tap" + j.EndpointID[:5]
 
 	// SrcName gets renamed to DstPrefix on the container iface
@@ -184,6 +203,9 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
+	local := "ovstap" + l.EndpointID[:5]
+	DelLinkFromBridge(local)
+
 	log.Debugf("Leave request: %+v", &l)
 	emptyResponse(w)
 	log.Debugf("Leave %s:%s", l.NetworkID, l.EndpointID)
