@@ -16,9 +16,9 @@ const (
 
 
 // go run main.go --externalPort=enp0s9
-// docker network create -d dhcp --subnet=192.168.1.1/28 FLOATING
+// docker network create -d dhcp --subnet=192.168.10.1/24 --gateway=192.168.10.1 FLOATING
 // docker network rm FLOATING
-// docker run -it --net FLOATING akanto/net-perf
+// docker run -it --net FLOATING ubuntu
 
 func main() {
 
@@ -39,6 +39,11 @@ func main() {
 	if printVersion {
 		fmt.Printf("DHCP plugin %s\n", version)
 		os.Exit(0)
+	}
+
+	// remove abandoned socket
+	if err := os.MkdirAll("/run/docker/plugins", 0755); err != nil && !os.IsNotExist(err) {
+		log.Fatalf("Unable to create directory: /run/docker/plugins reason: %s", err)
 	}
 
 	// remove abandoned socket
