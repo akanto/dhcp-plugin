@@ -1,6 +1,7 @@
 package dhcp
 
 import (
+	"fmt"
 	"encoding/json"
 	"net/http"
 
@@ -10,6 +11,26 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+
+type driver struct {
+	version    string
+	externalPort string
+}
+
+func NewDriver(version string, externalPort string) (Driver, error) {
+	b := NewBridge()
+	err := b.setupBridge(externalPort)
+
+	if err != nil {
+		return nil, fmt.Errorf("unable to create the bridge: %s", err)
+	}
+
+	d := &driver{
+		version: version,
+		externalPort: externalPort,
+	}
+	return d, nil
+}
 
 
 func (driver *driver) createNetwork(w http.ResponseWriter, r *http.Request) {
@@ -27,24 +48,15 @@ func (driver *driver) createNetwork(w http.ResponseWriter, r *http.Request) {
 	objectResponse(w, resp)
 }
 
-type networkDelete struct {
-	NetworkID string
-}
 
 func (driver *driver) deleteNetwork(w http.ResponseWriter, r *http.Request) {
-	var delete networkDelete
+	var delete api.DeleteNetworkRequest
 	if err := json.NewDecoder(r.Body).Decode(&delete); err != nil {
 		sendError(w, "Unable to decode JSON payload: " + err.Error(), http.StatusBadRequest)
 		return
 	}
 	log.Debugf("Delete network request:  %+v", delete)
 	emptyResponse(w)
-}
-
-type InterfaceName struct {
-	SrcName   string
-	DstName   string
-	DstPrefix string
 }
 
 func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -58,8 +70,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Create endpoint request interface: %+v", create.Interface)
 
 	// create and attach local name to the bridge
-	local := "ovstap" + create.EndpointID[:5]
-	remote := "tap" + create.EndpointID[:5]
+	local, remote := veth(create.EndpointID)
 
 	la := netlink.NewLinkAttrs()
 	la.Name = local
@@ -69,10 +80,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("could not create veth pair: %s", err)
 	}
 
-	//CreateVethPair(local, remote)
-
 	remoteTap, _ := netlink.LinkByName(remote)
-
 
 	log.Debugf("remoteTap: %+v", remoteTap)
 	mac := remoteTap.Attrs().HardwareAddr.String()
@@ -91,21 +99,15 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	objectResponse(w, resp)
 }
 
-type endpointDelete struct {
-	NetworkID  string
-	EndpointID string
-}
-
 func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
-	var delete endpointDelete
+	var delete api.DeleteEndpointRequest
 	if err := json.NewDecoder(r.Body).Decode(&delete); err != nil {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
 
 	// create and attach local name to the bridge
-	local := "ovstap" + delete.EndpointID[:5]
-	remote := "tap" + delete.EndpointID[:5]
+	local, remote := veth(delete.EndpointID)
 
 	la := netlink.NewLinkAttrs()
 	la.Name = local
@@ -117,10 +119,6 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Delete endpoint request: %+v", &delete)
 	emptyResponse(w)
-	// null check cidr in case driver restarted and doesn't know the network to avoid panic
-	if driver.cidr == nil {
-		return
-	}
 
 	log.Debugf("Delete endpoint %s", delete.EndpointID)
 
@@ -147,10 +145,10 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Join request: %+v", j)
 
-	local := "ovstap" + j.EndpointID[:5]
-	AddLinkToBridge(local)
+	local, remote := veth(j.EndpointID)
 
-	remote := "tap" + j.EndpointID[:5]
+	b := NewBridge()
+	b.addLink(local)
 
 	// SrcName gets renamed to DstPrefix on the container iface
 	ifname := &api.InterfaceName{
@@ -182,3 +180,10 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Leave %s:%s", l.NetworkID, l.EndpointID)
 }
 
+
+func veth(endpointId string) (local string, remote string) {
+	suffix := endpointId[:5]
+	local = "ovstap" + suffix
+	remote = "tap" + suffix
+	return
+}

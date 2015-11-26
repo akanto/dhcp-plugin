@@ -8,25 +8,37 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-func SetupBridge(externalPort string) error {
-	bridgeName := "floatingbr"
+type Bridge struct  {
+	bridgeName string
+
+}
+
+func NewBridge() (*Bridge) {
+	b := &Bridge{
+		bridgeName: "floatingbr",
+	}
+	return b
+}
+
+func (b *Bridge) setupBridge(externalPort string) error {
+
 	la := netlink.NewLinkAttrs()
-	la.Name = bridgeName
-	bridge, _ := netlink.LinkByName(bridgeName)
+	la.Name = b.bridgeName
+	bridge, _ := netlink.LinkByName(b.bridgeName)
 
 	if bridge == nil {
-		log.Debugf("Bridge %s does not exist ", bridgeName)
-		out, err := exec.Command("ovs-vsctl", "add-br", bridgeName).CombinedOutput()
+		log.Debugf("Bridge %s does not exist ", b.bridgeName)
+		out, err := exec.Command("ovs-vsctl", "add-br", b.bridgeName).CombinedOutput()
 		if err != nil {
-			log.Fatalf("Bridge %s creation failed been created.  Resp: %s, err: %s", bridgeName, out, err)
+			log.Fatalf("Bridge %s creation failed been created.  Resp: %s, err: %s", b.bridgeName, out, err)
 		}
-		log.Infof("Bridge %s has been created.  Resp: %s", bridgeName, out)
+		log.Infof("Bridge %s has been created.  Resp: %s", b.bridgeName, out)
 
-		out, err = exec.Command("ovs-vsctl", "add-port", bridgeName, externalPort).CombinedOutput()
+		out, err = exec.Command("ovs-vsctl", "add-port", b.bridgeName, externalPort).CombinedOutput()
 		if err != nil {
 			log.Fatalf("Failed to add external port %s.  Resp: %s, err: %s", externalPort, out, err)
 		}
-		log.Infof("External port %s has been added to %s. Resp: %s", externalPort, bridgeName, out)
+		log.Infof("External port %s has been added to %s. Resp: %s", externalPort, b.bridgeName, out)
 
 		out, err = exec.Command("ifconfig", externalPort, "0.0.0.0").CombinedOutput()
 		if err != nil {
@@ -36,15 +48,14 @@ func SetupBridge(externalPort string) error {
 
 		return err
 	} else {
-		log.Debugf("Bridge %s already exsist", bridgeName)
+		log.Debugf("Bridge %s already exsist", b.bridgeName)
 	}
 
 	return nil
 }
 
-func AddLinkToBridge(local string) error {
-	bridgeName := "floatingbr"
-	out, err := exec.Command("ovs-vsctl", "add-port", bridgeName, local).CombinedOutput()
+func (b *Bridge) addLink(local string) error {
+	out, err := exec.Command("ovs-vsctl", "add-port", b.bridgeName, local).CombinedOutput()
 	if err != nil {
 		log.Errorf("Failed to add bridge: %s.  Resp: %s, err: %s",  local, out, err)
 		return err
@@ -65,10 +76,3 @@ func DelLinkFromBridge(local string) error {
 	return err
 }
 
-func CreateVethPair(local string, remote string) error {
-	out, err := exec.Command("ip", "link", "add", remote, "type", "veth", "peer", "name", local).CombinedOutput()
-	if err != nil {
-		log.Errorf("Veth pair creation failed (%s, %s) creation failed been created.  Resp: %s, err: %s",  local, remote, out, err)
-	}
-	return err
-}

@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/samalba/dockerclient"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -21,49 +20,6 @@ type Driver interface {
 	Listen(string) error
 }
 
-type dockerer struct {
-	client *dockerclient.DockerClient
-}
-
-type driver struct {
-	dockerer
-	pluginConfig
-	version    string
-	network    string
-	cidr       *net.IPNet
-}
-
-type pluginConfig struct {
-	networkInterface string
-}
-
-func New(version string, externalPort string) (Driver, error) {
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to docker: %s", err)
-	}
-
-	pluginOpts := &pluginConfig{
-		networkInterface: externalPort,
-	}
-
-	log.Infof("Plugin configuration options are: \n %+v", pluginOpts)
-
-	SetupBridge(externalPort)
-
-	if err != nil {
-		return nil, fmt.Errorf("unable to create the bridge: %s", err)
-	}
-
-	d := &driver{
-		dockerer: dockerer{
-			client: docker,
-		},
-		version: version,
-		pluginConfig: *pluginOpts,
-	}
-	return d, nil
-}
 
 func (driver *driver) Listen(socket string) error {
 	router := mux.NewRouter()

@@ -7,7 +7,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-func NewBridge() error {
+func NewBridgex() error {
 	bridgeName := "dhcpbr0"
 	la := netlink.NewLinkAttrs()
 	la.Name = bridgeName

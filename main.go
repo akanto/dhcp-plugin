@@ -14,6 +14,7 @@ const (
 	version = "0.0.1"
 )
 
+// export GOPATH=/opt/go && cd /opt/go/src/github.com/akanto/dhcp-plugin
 
 // go run main.go --externalPort=enp0s9
 // docker network create -d dhcp --subnet=192.168.10.1/24 --gateway=192.168.10.1 FLOATING
@@ -60,7 +61,7 @@ func main() {
 
 	var d dhcp.Driver
 
-	d, err := dhcp.New(version, externalPort)
+	d, err := dhcp.NewDriver(version, externalPort)
 	if err != nil {
 		log.Fatalf("Unable to create driver: %s", err)
 	}
