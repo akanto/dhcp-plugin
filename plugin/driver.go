@@ -11,11 +11,18 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-
 type driver struct {
-	version    string
+	version      string
 	externalPort string
+	networks     map[string]*network
 }
+
+type network struct {
+	id        string
+	subnet    string
+	gateway   string
+}
+
 
 func NewDriver(version string, externalPort string) (Driver, error) {
 	b := NewBridge()
@@ -28,6 +35,7 @@ func NewDriver(version string, externalPort string) (Driver, error) {
 	d := &driver{
 		version: version,
 		externalPort: externalPort,
+		networks: make(map[string]*network),
 	}
 	return d, nil
 }
@@ -172,14 +180,26 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	local := "ovstap" + l.EndpointID[:5]
-	DelLinkFromBridge(local)
+
+	local, _ := veth(l.EndpointID)
+	b := NewBridge()
+	b.delLink(local)
 
 	log.Debugf("Leave request: %+v", &l)
 	emptyResponse(w)
 	log.Debugf("Leave %s:%s", l.NetworkID, l.EndpointID)
 }
 
+
+func (driver *driver) discoverNew(w http.ResponseWriter, r *http.Request) {
+	log.Debugf("DiscoverNew request")
+	emptyResponse(w)
+}
+
+func (driver *driver) discoverDelete(w http.ResponseWriter, r *http.Request) {
+	log.Debugf("DiscoverDelete request")
+	emptyResponse(w)
+}
 
 func veth(endpointId string) (local string, remote string) {
 	suffix := endpointId[:5]

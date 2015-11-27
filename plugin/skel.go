@@ -36,6 +36,8 @@ func (driver *driver) Listen(socket string) error {
 	handleMethod("CreateEndpoint", driver.createEndpoint)
 	handleMethod("DeleteEndpoint", driver.deleteEndpoint)
 	handleMethod("EndpointOperInfo", driver.infoEndpoint)
+	handleMethod("DiscoverNew", driver.discoverNew)
+	handleMethod("DiscoverDelete", driver.discoverDelete)
 	handleMethod("Join", driver.joinEndpoint)
 	handleMethod("Leave", driver.leaveEndpoint)
 	var (

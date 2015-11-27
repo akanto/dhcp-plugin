@@ -68,7 +68,7 @@ func (b *Bridge) addLink(local string) error {
 	return err
 }
 
-func DelLinkFromBridge(local string) error {
+func (b *Bridge) delLink(local string) error {
 	out, err := exec.Command("ovs-vsctl", "del-port", local).CombinedOutput()
 	if err != nil {
 		log.Errorf("Failed to delete bridge: %s.  Resp: %s, err: %s",  local, out, err)
