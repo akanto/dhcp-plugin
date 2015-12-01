@@ -27,10 +27,14 @@ func main() {
 		printVersion bool
 		externalPort string
 		socketAddress string
+		kvProvider string
+		kvURL string
 	)
 
 	flag.BoolVar(&printVersion, "version", false, "print version and exit")
 	flag.StringVar(&externalPort, "externalPort", "", "network interface to be connected to the ")
+	flag.StringVar(&kvProvider, "kvProvider", "consul", "network interface to be connected to the ")
+	flag.StringVar(&kvURL, "kvURL", "10.0.40.10:8500/network", "network interface to be connected to the ")
 	flag.StringVar(&socketAddress, "socket", "/run/docker/plugins/dhcp.sock", "socket on which to listen")
 
 	flag.Parse()
@@ -61,7 +65,7 @@ func main() {
 
 	var d dhcp.Driver
 
-	d, err := dhcp.NewDriver(version, externalPort)
+	d, err := dhcp.NewDriver(version, externalPort, kvProvider, kvURL)
 	if err != nil {
 		log.Fatalf("Unable to create driver: %s", err)
 	}
